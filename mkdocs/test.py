@@ -1,19 +1,25 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+
 from mkdocs import build, nav, toc, utils, config
 import jinja2
+from mkdocs.compat import PY2
 import markdown
 import os
 import shutil
-import textwrap
 import tempfile
+import textwrap
 import unittest
 import re
 
 
 def dedent(text):
     return textwrap.dedent(text).strip()
+
+
+def ensure_utf(string):
+    return string.encode('utf-8') if PY2 else string
 
 
 class ConfigTests(unittest.TestCase):
@@ -33,13 +39,14 @@ class ConfigTests(unittest.TestCase):
         pages:
         - ['index.md', 'Introduction']
         """)
-        config_file = tempfile.NamedTemporaryFile()
-        config_file.write(file_contents)
+        config_file = tempfile.NamedTemporaryFile('w')
+        config_file.write(ensure_utf(file_contents))
         config_file.flush()
         options = {'config': config_file.name}
         results = config.load_config(options=options)
         self.assertEqual(results['site_name'], expected_results['site_name'])
         self.assertEqual(results['pages'], expected_results['pages'])
+        config_file.close()
 
     def test_default_pages(self):
         tmp_dir = tempfile.mkdtemp()
@@ -99,6 +106,23 @@ class UtilsTests(unittest.TestCase):
         for path, expected_result in expected_results.items():
             is_html = utils.is_html_file(path)
             self.assertEqual(is_html, expected_result)
+
+    def test_create_media_urls(self):
+        pages = [
+            ('index.md', 'Home'),
+            ('about.md', 'About')
+        ]
+        expected_results = {
+            'https://media.cdn.org/jquery.js': 'https://media.cdn.org/jquery.js',
+            'http://media.cdn.org/jquery.js': 'http://media.cdn.org/jquery.js',
+            '//media.cdn.org/jquery.js': '//media.cdn.org/jquery.js',
+            'media.cdn.org/jquery.js': './media.cdn.org/jquery.js',
+            'local/file/jquery.js': './local/file/jquery.js',
+        }
+        site_navigation = nav.SiteNavigation(pages, None)
+        for path, expected_result in expected_results.items():
+            urls = utils.create_media_urls(site_navigation, [path])
+            self.assertEqual(urls[0], expected_result)
 
 
 class TableOfContentsTests(unittest.TestCase):
@@ -180,9 +204,9 @@ class SiteNavigationTests(unittest.TestCase):
         Home - /
         About - /about/
         """)
-        site_navigation = nav.SiteNavigation(pages)
+        site_navigation = nav.SiteNavigation(pages, None)
         self.assertEqual(str(site_navigation).strip(), expected)
-        self.assertEqual(len(site_navigation.nav_items), 2)
+        self.assertEqual(len(site_navigation.nav_items), 1)
         self.assertEqual(len(site_navigation.pages), 2)
 
     def test_empty_toc_item(self):
@@ -191,9 +215,10 @@ class SiteNavigationTests(unittest.TestCase):
             ('about.md', 'About')
         ]
         expected = dedent("""
+        Home - /
         About - /about/
         """)
-        site_navigation = nav.SiteNavigation(pages)
+        site_navigation = nav.SiteNavigation(pages, None)
         self.assertEqual(str(site_navigation).strip(), expected)
         self.assertEqual(len(site_navigation.nav_items), 1)
         self.assertEqual(len(site_navigation.pages), 2)
@@ -217,9 +242,9 @@ class SiteNavigationTests(unittest.TestCase):
             Release notes - /about/release-notes/
             License - /about/license/
         """)
-        site_navigation = nav.SiteNavigation(pages)
+        site_navigation = nav.SiteNavigation(pages, None)
         self.assertEqual(str(site_navigation).strip(), expected)
-        self.assertEqual(len(site_navigation.nav_items), 3)
+        self.assertEqual(len(site_navigation.nav_items), 2)
         self.assertEqual(len(site_navigation.pages), 6)
 
     def test_walk_simple_toc(self):
@@ -237,7 +262,7 @@ class SiteNavigationTests(unittest.TestCase):
                 About - /about/ [*]
             """)
         ]
-        site_navigation = nav.SiteNavigation(pages)
+        site_navigation = nav.SiteNavigation(pages, None)
         for index, page in enumerate(site_navigation.walk_pages()):
             self.assertEqual(str(site_navigation).strip(), expected[index])
 
@@ -248,13 +273,15 @@ class SiteNavigationTests(unittest.TestCase):
         ]
         expected = [
             dedent("""
+                Home - / [*]
                 About - /about/
             """),
             dedent("""
+                Home - /
                 About - /about/ [*]
             """)
         ]
-        site_navigation = nav.SiteNavigation(pages)
+        site_navigation = nav.SiteNavigation(pages, None)
         for index, page in enumerate(site_navigation.walk_pages()):
             self.assertEqual(str(site_navigation).strip(), expected[index])
 
@@ -329,9 +356,17 @@ class SiteNavigationTests(unittest.TestCase):
                     License - /about/license/ [*]
             """)
         ]
-        site_navigation = nav.SiteNavigation(pages)
+        site_navigation = nav.SiteNavigation(pages, None)
         for index, page in enumerate(site_navigation.walk_pages()):
             self.assertEqual(str(site_navigation).strip(), expected[index])
+
+    def test_base_url(self):
+        pages = [
+            ('index.md',)
+        ]
+        site_navigation = nav.SiteNavigation(pages, None, use_directory_urls=False)
+        base_url = site_navigation.url_context.make_relative('/')
+        self.assertEqual(base_url, '.')
 
 
 class BuildTests(unittest.TestCase):
@@ -405,6 +440,17 @@ class BuildTests(unittest.TestCase):
         html = build.post_process_html(html)
         self.assertEqual(html.strip(), expected.strip())
 
+    def test_not_use_directory_urls(self):
+        md_text = 'An [internal link](internal.md) to another document.'
+        expected = '<p>An <a href="internal/index.html">internal link</a> to another document.</p>'
+        pages = [
+            ('internal.md',)
+        ]
+        site_navigation = nav.SiteNavigation(pages, None, use_directory_urls=False)
+        html, toc, meta = build.convert_markdown(md_text)
+        html = build.post_process_html(html, site_navigation)
+        self.assertEqual(html.strip(), expected.strip())
+
     def test_markdown_table_extension(self):
         """
         Ensure that the table extension is supported.
@@ -462,7 +508,7 @@ class BuildTests(unittest.TestCase):
             ('index.md', 'Home'),
             ('about.md', 'About')
         ]
-        site_navigation = nav.SiteNavigation(pages)
+        site_navigation = nav.SiteNavigation(pages, None)
 
         package_dir = os.path.dirname(__file__)
         loader = jinja2.FileSystemLoader(os.path.join(package_dir, 'statics'))
@@ -475,6 +521,30 @@ class BuildTests(unittest.TestCase):
         DATE_RE = re.compile('(\d\d\d\d-\d\d-\d\d)')
         self.assertEqual(DATE_RE.sub('{DATE}', sitemap), DATE_RE.sub('{DATE}', expected))
 
+    def test_markdown_custom_extension(self):
+        """
+        Check that an extension applies when requested in the arguments to
+        `convert_markdown`.
+        """
+        md_input = "foo__bar__baz"
+
+        # Check that the plugin is not active when not requested.
+        expected_without_smartstrong = "<p>foo<strong>bar</strong>baz</p>"
+        html_base, _, _ = build.convert_markdown(md_input)
+        self.assertEqual(html_base.strip(), expected_without_smartstrong)
+
+        # Check that the plugin is active when requested.
+        expected_with_smartstrong = "<p>foo__bar__baz</p>"
+        html_ext, _, _ = build.convert_markdown(md_input, ['smart_strong'])
+        self.assertEqual(html_ext.strip(), expected_with_smartstrong)
+
+    def test_markdown_duplicate_custom_extension(self):
+        """
+        Duplicated extension names should not cause problems.
+        """
+        md_input = "foo"
+        html_ext, _, _ = build.convert_markdown(md_input, ['toc'])
+        self.assertEqual(html_ext.strip(), '<p>foo</p>')
 
 # class IntegrationTests(unittest.TestCase):
 #     def test_mkdocs_site(self):

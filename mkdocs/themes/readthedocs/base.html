@@ -10,15 +10,14 @@
   <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
 
   <link rel="stylesheet" href="{{ base_url }}/css/theme.css" type="text/css" />
-  {% for path in extra_css %}
-    <link href="{{ base_url }}/{{ path }}" rel="stylesheet">
-  {% endfor %}
+  {%- for path in extra_css %}
+  <link href="{{ path }}" rel="stylesheet">
+  {%- endfor %}
 
-  <script type="text/javascript" src="{{ base_url }}/js/theme.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
-  {% for path in extra_javascript %}
-    <script src="{{ base_url }}/{{ path }}"></script>
-  {% endfor %}
+  {%- for path in extra_javascript %}
+  <script src="{{ path }}"></script>
+  {%- endfor %}
 
   <style>
     body {font-size: 90%;}

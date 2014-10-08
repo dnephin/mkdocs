@@ -1,10 +1,9 @@
 # coding: utf-8
 
+from mkdocs import utils
+from mkdocs.compat import urlparse
 import os
 import yaml
-import urlparse
-from mkdocs import utils
-
 
 DEFAULT_CONFIG = {
     'site_name': None,
@@ -20,7 +19,10 @@ DEFAULT_CONFIG = {
     'site_dir': 'site',
     'theme_dir': None,
 
-    # The address on which to serve the livereloading docs servers.
+    'copyright': None,
+    'google-analytics': None,
+
+    # The address on which to serve the livereloading docs server.
     'dev_addr': '127.0.0.1:8000',
 
     # If `True`, use `<page_name>/index.hmtl` style files with hyperlinks to the directory.
@@ -31,7 +33,6 @@ DEFAULT_CONFIG = {
     # `True` if you use server side rewriting, the user may receive some content at a different url from which it was originally rendered.
     # `False` allows you to to relocate your documentation to different url subdirectories without rebuilding.
     'use_absolute_urls': False,
-
 
     # Specify a link to the project source repo to be included
     # in the documentation pages.
@@ -58,7 +59,16 @@ DEFAULT_CONFIG = {
     'include_sitemap': True,
 
     # These are not yet supported...
+    # PyMarkdown extension names.
+    'markdown_extensions': (),
+
+    # Determine if the site should generate a json search index and include
+    # search elements in the theme. - TODO
     'include_search': False,
+
+    # Determine if the site should include a 404.html page.
+    # TODO: Implment this. Make this None, have it True if a 404.html
+    # template exists in the theme or docs dir.
     'include_404': False,
 }
 
@@ -68,8 +78,8 @@ def load_config(filename='mkdocs.yml', options=None):
     if 'config' in options:
         filename = options['config']
     assert os.path.exists(filename), "Config file '%s' does not exist." % filename
-
-    user_config = yaml.load(open(filename, 'r'))
+    with open(filename, 'r') as fp:
+        user_config = yaml.load(fp)
     user_config.update(options)
     return validate_config(user_config)
 
@@ -122,7 +132,7 @@ def validate_config(user_config):
     config['statics_dir'] = os.path.join(package_dir, 'statics')
 
     if config['repo_url'] is not None and config['repo_name'] is None:
-        repo_host = urlparse.urlparse(config['repo_url']).netloc.lower()
+        repo_host = urlparse(config['repo_url']).netloc.lower()
         if repo_host == 'github.com':
             config['repo_name'] = 'GitHub'
         elif repo_host == 'bitbucket.com':
@@ -146,5 +156,6 @@ def validate_config(user_config):
     # Cannot set repo_name without setting repo_url.
     # Cannot set 'include_next_prev: true' when only one page exists.
     # Cannot set 'include_nav: true' when only one page exists.
+    # Error if any config keys provided that are not in the DEFAULT_CONFIG.
 
     return config

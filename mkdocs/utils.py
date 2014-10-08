@@ -10,6 +10,8 @@ and structure of the site and pages in the site.
 import os
 import shutil
 
+from mkdocs.compat import urlparse
+
 
 def copy_file(source_path, output_path):
     """
@@ -28,7 +30,7 @@ def write_file(content, output_path):
     output_dir = os.path.dirname(output_path)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    open(output_path, 'w').write(content)
+    open(output_path, 'wb').write(content)
 
 
 def copy_media_files(from_dir, to_dir):
@@ -57,7 +59,7 @@ def get_html_path(path):
     path = os.path.splitext(path)[0]
     if os.path.basename(path) == 'index':
         return path + '.html'
-    return os.path.join(path, 'index.html')
+    return "/".join((path, 'index.html'))
 
 
 def get_url_path(path, use_directory_urls=True):
@@ -76,6 +78,10 @@ def get_url_path(path, use_directory_urls=True):
     if use_directory_urls:
         return url[:-len('index.html')]
     return url
+
+
+def is_homepage(path):
+    return os.path.splitext(path)[0] == 'index'
 
 
 def is_markdown_file(path):
@@ -124,3 +130,19 @@ def is_html_file(path):
         '.html',
         '.htm',
     ]
+
+
+def create_media_urls(nav, url_list):
+    """
+    Return a list of URLs that have been processed correctly for inclusion in a page.
+    """
+    final_urls = []
+    for url in url_list:
+        # Allow links to fully qualified URL's
+        parsed = urlparse(url)
+        if parsed.netloc:
+            final_urls.append(url)
+        else:
+            relative_url = '%s/%s' % (nav.url_context.make_relative('/'), url)
+            final_urls.append(relative_url)
+    return final_urls

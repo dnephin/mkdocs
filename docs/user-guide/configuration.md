@@ -22,7 +22,7 @@ When rendering the theme this setting will be passed as the `site_name` context 
 
 #### site_url
 
-Quo ex ceteros theophrastus, mel eius repudiandae an, has autem legendos ut. Eu quo moderatius interpretaris, pro ad homero tractatos cotidieque. His errem dictas instructior ad, tation causae ceteros ex eum. Nam falli dicunt te, mea et unum contentiones, ius noluisse rationibus cotidieque ei.
+Set the canonical URL of the site. This will add a link tag with the canonical URL to the generated HTML header.
 
 **default**: `null`
 
@@ -36,19 +36,22 @@ When set, provides a link to your GitHub or Bitbucket repository on each page.
 
 #### site_description
 
-Eam no quis bonorum legendos. Eos prodesset cotidieque in, atqui saperet eos te. Sit eruditi fastidii detraxit cu, sed elit voluptatum in. Vel esse possim accumsan et, eam et amet nihil putent. Mei putent impetus no, iuvaret labores duo an.
-
+Set the site description. This will add a meta tag to the generated HTML header.
 **default**: `null`
 
-#### site_author
+#### site_author 
 
-Sit eruditi fastidii detraxit cu, sed elit voluptatum in. Vel esse possim accumsan et, eam et amet nihil putent.
+Set the name of the author. This will add a meta tag to the generated HTML header.
 
 **default**: `null`
 
 #### site_favicon
 
-Sit eruditi fastidii detraxit cu, sed elit voluptatum in. Vel esse possim accumsan et, eam et amet nihil putent.
+Set the favicon to use. Putting a `favicon.ico` into the `docs/` directory, the config would look as follows:
+
+```yaml
+site_favicon: favicon.ico
+```
 
 **default**: `null`
 
@@ -195,3 +198,19 @@ Vel at magna falli fierent. Clita putant nam no, cu per eros possit omnium, dici
 
 No sale minim definiebas vis. An quem utinam eam, est et consul patrioque maiestatis. Vel id decore periculis eloquentiam. Eu vim graeco causae, nec ut dicta graecis delicatissimi. Ne quod etiam salutandi vix, est stet veritus ne. Modus corrumpit usu ea, pri et dicam dignissim, quo ea sumo essent interesset.
 -->
+
+## Formatting options
+
+#### markdown_extensions
+
+MkDocs uses the [Python Markdown][pymkd] library to translate Markdown files into HTML. Python Markdown supports a variety of [extensions][pymdk-extensions] that customize how pages are formatted. This setting lets you enable a list of extensions beyond the ones that MkDocs uses by default (`meta`, `toc`, `tables`, and `fenced_code`).
+
+For example, to enable the [SmartyPants typography extension][smarty], use:
+
+    markdown_extensions: [smartypants]
+
+**default**: `[]`
+
+[pymdk-extensions]: http://pythonhosted.org/Markdown/extensions/index.html
+[pymkd]: http://pythonhosted.org/Markdown/
+[smarty]: https://pypi.python.org/pypi/mdx_smartypants

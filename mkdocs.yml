@@ -7,7 +7,7 @@ repo_url: https://github.com/tomchristie/mkdocs/
 dev_addr: 0.0.0.0:8000
 
 include_search: true
-use_absolute_urls: true
+#use_absolute_urls: true
 
 pages:
 - ['index.md', 'Home']

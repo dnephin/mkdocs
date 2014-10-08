@@ -12,6 +12,21 @@ import os
 import time
 
 
+def filename_to_title(filename):
+    """
+    Automatically generate a default title, given a filename.
+    """
+    if utils.is_homepage(filename):
+        return 'Home'
+
+    title = os.path.splitext(filename)[0]
+    title = title.replace('-', ' ').replace('_', ' ')
+    # Captialize if the filename was all lowercase, otherwise leave it as-is.
+    if title.lower() == title:
+        title = title.capitalize()
+    return title
+
+
 class SiteNavigation(object):
     def __init__(self, pages_config, site_url, use_directory_urls=True, use_absolute_urls=False):
         self.url_context = URLContext(site_url, use_absolute_urls)
@@ -20,9 +35,10 @@ class SiteNavigation(object):
             _generate_site_navigation(pages_config, self.url_context, use_directory_urls)
         self.homepage = self.pages[0] if self.pages else None
         self.use_absolute_urls = use_absolute_urls
+        self.use_directory_urls = use_directory_urls
 
     def __str__(self):
-        return ''.join([str(item) for item in self])
+        return str(self.homepage) + ''.join([str(item) for item in self])
 
     def __iter__(self):
         return iter(self.nav_items)
@@ -54,6 +70,15 @@ class SiteNavigation(object):
 
 
 class URLContext(object):
+    """
+    The URLContext is used to ensure that we can generate the appropriate
+    relative URLs to other pages from any given page in the site.
+
+    We use relative URLs so that static sites can be deployed to any location
+    without having to specify what the path component on the host will be
+    if the documentation is not hosted at the root path.
+    """
+
     def __init__(self, site_path, use_absolute_urls=False):
         self.base_path = '/'
         self.site_path = site_path
@@ -71,10 +96,24 @@ class URLContext(object):
             return self.site_path + url.lstrip('/')
         else:
             suffix = '/' if (url.endswith('/') and len(url) > 1) else ''
+            # Workaround for bug on `posixpath.relpath()` in Python 2.6
+            if self.base_path == '/':
+                if url == '/':
+                    # Workaround for static assets
+                    return '.'
+                return url.lstrip('/')
             return posixpath.relpath(url, start=self.base_path) + suffix
 
 
 class FileContext(object):
+    """
+    The FileContext is used to ensure that we can generate the appropriate
+    full path for other pages given their relative path from a particular page.
+
+    This is used when we have relative hyperlinks in the documentation, so that
+    we can ensure that they point to markdown documents that actually exist
+    in the `pages` config.
+    """
     def __init__(self):
         self.current_file = None
         self.base_path = ''
@@ -85,10 +124,10 @@ class FileContext(object):
 
     def make_absolute(self, path):
         """
-        Given a relative file path return it as a absolute filepath,
-        given the context of the current page.
+        Given a relative file path return it as a POSIX-style
+        absolute filepath, given the context of the current page.
         """
-        return os.path.normpath(os.path.join(self.base_path, path))
+        return posixpath.normpath(posixpath.join(self.base_path, path))
 
 
 class Page(object):
@@ -114,7 +153,7 @@ class Page(object):
 
     @property
     def is_homepage(self):
-        return os.path.splitext(self.input_path)[0] == 'index'
+        return utils.is_homepage(self.input_path)
 
     def __str__(self):
         return self._indent_print()
@@ -173,23 +212,21 @@ def _generate_site_navigation(pages_config, url_context, use_directory_urls=True
             )
             assert False, msg
 
-        if title is None and os.path.splitext(path)[0] != 'index':
-            title = path.split('/')[0]
-            title = os.path.splitext(title)[0]
-            title = title.replace('-', ' ').replace('_', ' ')
-            title = title.capitalize()
+        if title is None:
+            filename = path.split('/')[0]
+            title = filename_to_title(filename)
         if child_title is None and '/' in path:
-            child_title = path.split('/')[1]
-            child_title = os.path.splitext(child_title)[0]
-            child_title = child_title.replace('-', ' ').replace('_', ' ')
-            child_title = child_title.capitalize()
+            filename = path.split('/')[1]
+            child_title = filename_to_title(filename)
 
         url = utils.get_url_path(path, use_directory_urls)
 
         if not child_title or title == '**HIDDEN**':
             # New top level page.
             page = Page(title=title, url=url, path=path, url_context=url_context)
-            if page.title is not None and title != '**HIDDEN**':
+            if (page.title is not None and
+                    title != '**HIDDEN**' and
+                    not utils.is_homepage(path)):
                 # Page config lines that do not include a title, such as:
                 #    - ['index.md']
                 # Will not be added to the nav items heiarchy, although they
